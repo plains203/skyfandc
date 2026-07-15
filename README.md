@@ -13,7 +13,7 @@ git support so a fleet of these devices can be updated from one place.
 | `common_tuya_bus.yaml` | UART + Tuya MCU link | No |
 | `common_diagnostics.yaml` | Wi-Fi signal/strength, CPU temp, uptime | No |
 | `tuya_fan.yaml` | Fan entity + Tuya datapoint logic (mode/timer/speed) | Only `fan_name`/`skyfan_model` |
-| `tuya_light.yaml` | Light entity + colour temperature select | Only `light_name` |
+| `tuya_light.yaml` | Single light entity with brightness + colour temperature | Only `light_name` |
 | `sensor_power_fan.yaml` | Estimated fan power draw from datasheet tables | Only `skyfan_model` |
 | `sensor_power_light.yaml` | Estimated light power draw (untested/incomplete) | No |
 
@@ -67,6 +67,26 @@ config validation, which slows down the dashboard/VS Code extension).
 `ref: main` pins to the branch explicitly - worth switching to a tag once
 this is stable, so a bad commit here can't brick the whole fleet on next
 compile.
+
+## Light: one entity with colour temperature
+
+`tuya_light.yaml` no longer uses ESPHome's `tuya` light platform. On the
+SkyFan DC, colour temperature (datapoint 19) is an enum, but the tuya
+light platform writes `color_temperature_datapoint` as an int, so the MCU
+ignores it (esphome/issues#3476) - which is why the old config needed a
+separate "Color Temperature" select. The light is now built from the
+`color_temperature` platform with template outputs that write dp19 with
+the correct enum type, giving one HA light entity with native CT control.
+HA's continuous CT slider quantises to the hardware's three steps
+(6500 / 4200 / 3000 K) and snaps to the confirmed value.
+
+After flashing, per device (one-time):
+1. The light entity itself is preserved (same name -> same unique_id);
+   it just gains the colour temp control.
+2. The old "<light_name> Color Temperature" select goes unavailable -
+   delete it in Settings > Devices & Services > Entities.
+3. Repoint any automations/dashboards that used the select to
+   `light.turn_on` with `color_temp_kelvin` instead.
 
 ## A note on entity names
 

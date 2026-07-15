@@ -1,48 +1,187 @@
-# This exposes a light entity to the frontend (like Home Assistant).
-# Tuya datapoints thanks to https://github.com/SirMrDexter/skyfandc
+# SkyFan DC ceiling light - single Home Assistant light entity with
+# brightness AND colour temperature.
 #
-# light_name default matches what's already deployed ("ceilinglight") so
-# this drops straight into the existing fleet with no entity renames.
+# Why not the native `tuya` light platform with color_temperature_datapoint?
+# On the SkyFan DC, datapoint 19 (colour temperature) is an ENUM (0/1/2),
+# but ESPHome's tuya light writes color_temperature_datapoint as an INT -
+# the type mismatch means the MCU silently ignores it (esphome/issues#3476).
+# That's why the old config carried a separate "Color Temperature" select
+# entity alongside the light.
 #
-# **WARNING**
-# Untested and incomplete.
+# This file instead builds the light from the `color_temperature` platform
+# with two template outputs, writing dp19 with the correct enum type via an
+# internal tuya select. Result in Home Assistant: ONE light entity with a
+# native colour-temperature control; the select/switch/number datapoint
+# helpers are all internal and no longer appear as entities.
+#
+# The CT slider in HA is continuous but the hardware has 3 steps
+# (6500 / 4200 / 3000 K); commands quantise to the nearest step and the
+# entity snaps to the true value once the MCU confirms.
+#
+# NOTE: the light keeps `name: ${light_name}`, and ESPHome unique_ids don't
+# include the platform, so the existing HA light entity is preserved.
+# The old "<light_name> Color Temperature" select WILL go unavailable in HA
+# after flashing - delete it from Settings > Devices & Services > Entities
+# and repoint anything that referenced it to the light's color_temp
+# attribute instead.
 ---
 substitutions:
   light_name: "ceilinglight"
 
+globals:
+  # Guard flag: true while we're pushing MCU-reported state into the light
+  # entity, so the outputs' write_actions don't echo it straight back to the
+  # MCU (same oscillation class the fan's update_fan switch guards against).
+  # Starts TRUE so the light's restore-on-boot write is swallowed - the MCU
+  # is the source of truth and its initial datapoint dump (via
+  # sync_light_from_mcu) both seeds the entity state and clears the guard.
+  - id: light_mcu_sync
+    type: bool
+    restore_value: no
+    initial_value: 'true'
+
 light:
   - id: skyfan_light
-    platform: tuya
+    platform: color_temperature
     name: ${light_name}
-    switch_datapoint: 15
-    dimmer_datapoint: 16
-    min_value: 0
-    max_value: 5
-    #color_temperature_datapoint: 19
-    #color_temperature_max_value: 2
-    #color_temperature_invert: False
-    #color_temperature: templateout_temp
-    #cold_white_color_temperature: 6500 K
-    #warm_white_color_temperature: 3000 K
+    brightness: light_brightness_output
+    color_temperature: light_ct_output
+    cold_white_color_temperature: 6500 K
+    warm_white_color_temperature: 3000 K
+    gamma_correct: 1.0          # linear - we're mapping to 5 discrete levels
+    default_transition_length: 0s  # no fades: avoids spamming dp writes
     restore_mode: RESTORE_DEFAULT_OFF
-    disabled_by_default: false
 
-select:
-  - id: datapoint_light_color_temperature
+output:
+  # HA brightness/on-off -> Tuya dp15 (switch) + dp16 (level 1-5)
+  - id: light_brightness_output
+    platform: template
+    type: float
+    write_action:
+      - if:
+          condition:
+            lambda: return id(light_mcu_sync);
+          then: []  # state came FROM the MCU - don't write it back
+          else:
+            - if:
+                condition:
+                  lambda: return state < 0.01f;
+                then:
+                  - switch.turn_off: dp_light_switch
+                else:
+                  - switch.turn_on: dp_light_switch
+                  - number.set:
+                      id: dp_light_dimmer
+                      value: !lambda |-
+                        int level = (int) roundf(state * 5.0f);
+                        if (level < 1) level = 1;
+                        if (level > 5) level = 5;
+                        return level;
+
+  # HA colour temperature -> Tuya dp19 (enum), written with the correct
+  # enum type via the internal tuya select below.
+  # Incoming float: 0.0 = cold end (6500 K) ... 1.0 = warm end (3000 K).
+  # Enum steps sit at 0.0 (6500 K), ~0.47 (4200 K), 1.0 (3000 K); the
+  # thresholds below are the midpoints between them.
+  - id: light_ct_output
+    platform: template
+    type: float
+    write_action:
+      - if:
+          condition:
+            # Also skip while the light is off - some MCUs treat a dp19
+            # write as an implicit power-on.
+            lambda: return id(light_mcu_sync) || !id(skyfan_light).current_values.is_on();
+          then: []
+          else:
+            - select.set_index:
+                id: dp_light_ct
+                index: !lambda |-
+                  if (state < 0.235f) return 0;  // Cool White (6500 K)
+                  if (state < 0.735f) return 1;  // Natural White (4200 K)
+                  return 2;                       // Warm White (3000 K)
+
+# --- Internal datapoint helpers (no HA entities) -------------------------
+
+switch:
+  - id: dp_light_switch
     platform: tuya
     tuya_id: tuyamcu
-    name: ${light_name} Color Temperature
+    switch_datapoint: 15
+    internal: true
+
+number:
+  - id: dp_light_dimmer
+    platform: tuya
+    tuya_id: tuyamcu
+    number_datapoint: 16
+    min_value: 0
+    max_value: 5
+    step: 1
+    internal: true
+
+select:
+  - id: dp_light_ct
+    platform: tuya
+    tuya_id: tuyamcu
     enum_datapoint: 19
-    entity_category: config
+    internal: true
     options:
       0: 'Cool White (6500K)'
       1: 'Natural White (4200K)'
       2: 'Warm White (3000K)'
-    disabled_by_default: false
+
+# --- MCU -> HA feedback (wall remote / power-cycle changes) ---------------
 
 tuya:
   id: tuyamcu
   on_datapoint_update:
     - sensor_datapoint: 15
       datapoint_type: bool
-      then: []
+      then:
+        - script.execute: sync_light_from_mcu
+    - sensor_datapoint: 16
+      datapoint_type: int
+      then:
+        - script.execute: sync_light_from_mcu
+    - sensor_datapoint: 19
+      datapoint_type: enum
+      then:
+        - script.execute: sync_light_from_mcu
+
+script:
+  - id: sync_light_from_mcu
+    mode: restart  # coalesce bursts of datapoint updates into one sync
+    then:
+      - delay: 150ms
+      - globals.set:
+          id: light_mcu_sync
+          value: 'true'
+      - if:
+          condition:
+            switch.is_on: dp_light_switch
+          then:
+            - light.control:
+                id: skyfan_light
+                state: on
+                brightness: !lambda |-
+                  float level = id(dp_light_dimmer).state;
+                  if (isnan(level) || level < 1.0f) level = 1.0f;
+                  if (level > 5.0f) level = 5.0f;
+                  return level / 5.0f;
+                color_temperature: !lambda |-
+                  auto idx = id(dp_light_ct).active_index();
+                  int i = idx.has_value() ? (int) idx.value() : 1;
+                  // Mireds, kept just inside the light's declared
+                  // [153.85, 333.33] range to avoid out-of-range warnings.
+                  if (i == 0) return 154.0f;  // ~6500 K
+                  if (i == 1) return 238.0f;  // ~4200 K
+                  return 333.0f;              // ~3000 K
+          else:
+            - light.turn_off: skyfan_light
+      # Let the light loop finish writing outputs (which the guard is
+      # suppressing) before re-enabling MCU writes.
+      - delay: 100ms
+      - globals.set:
+          id: light_mcu_sync
+          value: 'false'
