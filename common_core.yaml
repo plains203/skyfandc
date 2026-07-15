@@ -1,0 +1,50 @@
+# Shared core firmware config for every SkyFanDC node.
+#
+# Board setup and ESPHome-core behaviour that never differs between devices.
+# Per-device identity (device_name, device_friendly_name, area_name) is
+# passed in as substitutions from the device's local YAML.
+#
+# Required substitutions (set in the device's local YAML, no defaults here
+# on purpose - a missing value should fail the build loudly, not silently
+# reuse another device's name/area):
+#   device_name            e.g. "avas-fan"
+#   device_friendly_name   e.g. "Avas Fan"
+#   area_name              e.g. "Games Room"
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${device_friendly_name}
+  name_add_mac_suffix: false
+  area: ${area_name}
+  project:
+    name: "plains203.SkyFanDC"
+    version: "1.0"
+  on_boot:
+    priority: -100  # Run after everything else
+    then:
+      - delay: 2s  # Give I2C time to settle
+
+esp32:
+  board: esp32-c6-devkitc-1
+  framework:
+    type: esp-idf
+
+api:
+
+# Logger can't use the serial port - the Tuya MCU link needs it.
+logger:
+  baud_rate: 0
+
+ota:
+  platform: esphome
+
+captive_portal:
+
+# BLE Improv for easy provisioning of new/reflashed devices.
+esp32_improv:
+  authorizer: none
+
+i2c:
+  sda: 22
+  scl: 23
+  scan: true

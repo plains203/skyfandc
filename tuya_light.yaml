@@ -1,11 +1,14 @@
-# This exposes a light entity to the frontend (like Home Assistant). 
-# Tuya datapoints thanks of https://github.com/SirMrDexter/skyfandc
+# This exposes a light entity to the frontend (like Home Assistant).
+# Tuya datapoints thanks to https://github.com/SirMrDexter/skyfandc
+#
+# light_name default matches what's already deployed ("ceilinglight") so
+# this drops straight into the existing fleet with no entity renames.
 #
 # **WARNING**
 # Untested and incomplete.
 ---
 substitutions:
-  light_name: "SkyFan DC Light"
+  light_name: "ceilinglight"
 
 light:
   - id: skyfan_light
@@ -21,10 +24,8 @@ light:
     #color_temperature: templateout_temp
     #cold_white_color_temperature: 6500 K
     #warm_white_color_temperature: 3000 K
-#    color_mode: BRIGHTNESS # [color_mode] is an invalid option for [light.tuya]. 
     restore_mode: RESTORE_DEFAULT_OFF
     disabled_by_default: false
-
 
 select:
   - id: datapoint_light_color_temperature
@@ -32,12 +33,12 @@ select:
     tuya_id: tuyamcu
     name: ${light_name} Color Temperature
     enum_datapoint: 19
+    entity_category: config
     options:
       0: 'Cool White (6500K)'
       1: 'Natural White (4200K)'
       2: 'Warm White (3000K)'
     disabled_by_default: false
-
 
 tuya:
   id: tuyamcu

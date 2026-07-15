@@ -1,0 +1,11 @@
+# UART link to the Tuya MCU that drives the SkyFanDC fan/light hardware.
+# Split out from common_core.yaml since it's specific to the Tuya daughter-
+# board, not the ESP32-C6 board itself.
+
+uart:
+  rx_pin: 3
+  tx_pin: 2
+  baud_rate: 9600
+
+tuya:
+  id: tuyamcu

@@ -1,0 +1,41 @@
+# Shared WiFi + Bermuda/BLE-proxy config for every SkyFanDC node.
+#
+# NOTE: remote packages can't do `!secret` lookups directly (ESPHome
+# restriction - secrets only resolve locally). wifi_ssid / wifi_password
+# come in as substitutions that the device's local YAML sets using
+# !secret from its own secrets.yaml. See secrets.yaml.example.
+#
+# Required substitutions (from device local YAML):
+#   ip_address              e.g. "10.1.0.148"
+#   wifi_ssid               e.g. !secret wifi_ssid
+#   wifi_password           e.g. !secret wifi_password
+# Optional (has a default below, override per-device only if needed):
+#   wifi_ap_password
+
+substitutions:
+  wifi_ap_password: "configpass"
+
+wifi:
+  ssid: ${wifi_ssid}
+  password: ${wifi_password}
+  domain: ".plains203.com"
+
+  manual_ip:
+    static_ip: ${ip_address}
+    gateway: 10.1.1.254
+    subnet: 255.255.254.0
+
+  # Fallback AP for Improv/recovery if the configured network is unreachable.
+  ap:
+    ssid: "${device_friendly_name} Fallback"
+    password: ${wifi_ap_password}
+
+esp32_ble_tracker:
+  scan_parameters:
+    continuous: true
+    active: true
+    interval: 320ms
+    window: 300ms
+
+bluetooth_proxy:
+  active: true  # allows outbound HA connections + feeds Bermuda BLE tracking
