@@ -1,0 +1,23 @@
+packages:
+  remote_package_files:
+    url: https://github.com/plains203/skyfandc
+    ref: main
+    refresh: 1d
+    files:
+      - common_core.yaml
+      - common_network.yaml
+      - common_tuya_bus.yaml
+      - common_diagnostics.yaml
+      - tuya_fan.yaml
+      - tuya_light.yaml
+      - sensor_power_fan.yaml
+      - sensor_power_light.yaml
+
+substitutions:
+  device_name: "main-bedroom-fan"
+  device_friendly_name: "Main Bedroom Fan"
+  area_name: "Main Bedroom"
+  ip_address: "10.1.0.148"
+  skyfan_model: "SKY1203"
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
