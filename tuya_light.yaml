@@ -15,7 +15,7 @@
 # helpers are all internal and no longer appear as entities.
 #
 # The CT slider in HA is continuous but the hardware has 3 steps
-# (6500 / 4200 / 3000 K); commands quantise to the nearest step and the
+# (5000 / 4000 / 3000 K); commands quantise to the nearest step and the
 # entity snaps to the true value once the MCU confirms.
 #
 # NOTE: the light keeps `name: ${light_name}`, and ESPHome unique_ids don't
@@ -46,7 +46,7 @@ light:
     name: ${light_name}
     brightness: light_brightness_output
     color_temperature: light_ct_output
-    cold_white_color_temperature: 6500 K
+    cold_white_color_temperature: 5000 K
     warm_white_color_temperature: 3000 K
     gamma_correct: 1.0          # linear - we're mapping to 5 discrete levels
     default_transition_length: 0s  # no fades: avoids spamming dp writes
@@ -80,9 +80,10 @@ output:
 
   # HA colour temperature -> Tuya dp19 (enum), written with the correct
   # enum type via the internal tuya select below.
-  # Incoming float: 0.0 = cold end (6500 K) ... 1.0 = warm end (3000 K).
-  # Enum steps sit at 0.0 (6500 K), ~0.47 (4200 K), 1.0 (3000 K); the
-  # thresholds below are the midpoints between them.
+  # Incoming float: 0.0 = cold end (5000 K) ... 1.0 = warm end (3000 K).
+  # In mireds the steps sit at 200 (5000 K), 250 (4000 K), 333 (3000 K),
+  # i.e. normalized positions 0.0, 0.375, 1.0; the thresholds below are
+  # the midpoints between them.
   - id: light_ct_output
     platform: template
     type: float
@@ -97,9 +98,9 @@ output:
             - select.set_index:
                 id: dp_light_ct
                 index: !lambda |-
-                  if (state < 0.235f) return 0;  // Cool White (6500 K)
-                  if (state < 0.735f) return 1;  // Natural White (4200 K)
-                  return 2;                       // Warm White (3000 K)
+                  if (state < 0.1875f) return 0;  // Cool White (5000 K)
+                  if (state < 0.6875f) return 1;  // Natural White (4000 K)
+                  return 2;                        // Warm White (3000 K)
 
 # --- Internal datapoint helpers (no HA entities) -------------------------
 
@@ -127,8 +128,8 @@ select:
     enum_datapoint: 19
     internal: true
     options:
-      0: 'Cool White (6500K)'
-      1: 'Natural White (4200K)'
+      0: 'Cool White (5000K)'
+      1: 'Natural White (4000K)'
       2: 'Warm White (3000K)'
 
 # --- MCU -> HA feedback (wall remote / power-cycle changes) ---------------
@@ -173,9 +174,9 @@ script:
                   auto idx = id(dp_light_ct).active_index();
                   int i = idx.has_value() ? (int) idx.value() : 1;
                   // Mireds, kept just inside the light's declared
-                  // [153.85, 333.33] range to avoid out-of-range warnings.
-                  if (i == 0) return 154.0f;  // ~6500 K
-                  if (i == 1) return 238.0f;  // ~4200 K
+                  // [200, 333.33] range to avoid out-of-range warnings.
+                  if (i == 0) return 201.0f;  // ~5000 K
+                  if (i == 1) return 250.0f;  // 4000 K
                   return 333.0f;              // ~3000 K
           else:
             - light.turn_off: skyfan_light
