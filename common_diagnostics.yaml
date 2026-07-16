@@ -1,33 +1,26 @@
 # Standard diagnostic sensors, identical across every SkyFanDC node.
-#
-# Names below are kept EXACTLY as currently deployed ("C6 WiFi Signal" etc.)
-# so moving this block into the shared package doesn't change any entity's
-# unique_id in Home Assistant - just consolidates where it's defined.
-#
-# If/when you want cleaner names (e.g. "Wi-Fi Signal" instead of "C6 WiFi
-# Signal" - redundant once the device's friendly_name is already prefixed
-# in HA), see the Tier 2 notes; that's a deliberate, one-device-at-a-time
-# change because it does create new entities.
+# HA prefixes the device friendly_name, so entities appear as e.g.
+# "Main Bedroom Fan WiFi Signal".
 
 sensor:
   - platform: wifi_signal
-    name: "C6 WiFi Signal"
+    name: "WiFi Signal"
     id: wifi_signal_db
     update_interval: 60s
     entity_category: diagnostic
 
   - platform: copy
     source_id: wifi_signal_db
-    name: "C6 WiFi Strength"
+    name: "WiFi Strength"
     filters:
       - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
     unit_of_measurement: "%"
     entity_category: diagnostic
 
   - platform: internal_temperature
-    name: "C6 CPU Temp"
+    name: "CPU Temperature"
     entity_category: diagnostic
 
   - platform: uptime
-    name: "C6 Uptime"
+    name: "Uptime"
     entity_category: diagnostic

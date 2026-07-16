@@ -3,13 +3,12 @@
 # Skyfan DC datasheets.
 ---
 substitutions:
-  power_fan_name: $fan_name power
   skyfan_model: "SKY1203"
 
 sensor:
   - id: fan_power
     platform: template
-    name: ${power_fan_name}
+    name: Fan Power
     update_interval: 30s
     unit_of_measurement: "W"
     device_class: "power"

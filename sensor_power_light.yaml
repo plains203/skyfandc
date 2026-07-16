@@ -1,17 +1,17 @@
-# This exposes a faux Power Sensor to the frontend (like Home Assistant). 
+# This exposes a faux Power Sensor to the frontend (like Home Assistant).
 # The power value (Watts) for each brightness is estimated from the Skyfan DC
 # light specification.
+#
+# Depends on the skyfan_light entity from tuya_light.yaml - on fan-only
+# devices (no integrated light), omit BOTH files from the packages list.
 #
 # **WARNING**
 # Untested and incomplete.
 ---
-substitutions:
-  power_light_name: $light_name power
-
 sensor:
   - id: power_light
     platform: template
-    name: ${power_light_name}
+    name: Light Power
     unit_of_measurement: "W"
     device_class: "power"
     state_class: "measurement"

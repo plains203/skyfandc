@@ -18,16 +18,12 @@
 # (5000 / 4000 / 3000 K); commands quantise to the nearest step and the
 # entity snaps to the true value once the MCU confirms.
 #
-# NOTE: the light keeps `name: ${light_name}`, and ESPHome unique_ids don't
-# include the platform, so the existing HA light entity is preserved.
-# The old "<light_name> Color Temperature" select WILL go unavailable in HA
-# after flashing - delete it from Settings > Devices & Services > Entities
-# and repoint anything that referenced it to the light's color_temp
-# attribute instead.
+# NOTE: the light is named "Light" (HA prefixes the device friendly_name,
+# e.g. "Main Bedroom Fan Light"). Renaming from the old "ceilinglight"
+# changes the entity's unique_id, and the old "... Color Temperature"
+# select is now internal - see "Entity renames" in the README for the
+# one-time migration steps per device.
 ---
-substitutions:
-  light_name: "ceilinglight"
-
 globals:
   # Guard flag: true while we're pushing MCU-reported state into the light
   # entity, so the outputs' write_actions don't echo it straight back to the
@@ -43,7 +39,7 @@ globals:
 light:
   - id: skyfan_light
     platform: color_temperature
-    name: ${light_name}
+    name: Light
     brightness: light_brightness_output
     color_temperature: light_ct_output
     cold_white_color_temperature: 5000 K

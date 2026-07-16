@@ -17,14 +17,12 @@
 #   HA 5 -> mode Normal, dp3 speed 4
 #   HA 6 -> mode Normal, dp3 speed 5
 #
-# NOTE: the fan keeps `name: ${fan_name}` and the same component type, so
-# the existing HA fan entity is preserved. The old update_fan template
-# switch had no name (never an HA entity), so removing it changes nothing
-# in HA.
+# NOTE: the fan uses `name: None`, so the entity takes the device's
+# friendly_name (device "Main Bedroom Fan" -> fan.main_bedroom_fan named
+# "Main Bedroom Fan"). Renaming from the old "skyfan" changes the entity's
+# unique_id - see "Entity renames" in the README for the one-time
+# migration steps per device.
 ---
-substitutions:
-  fan_name: "skyfan"
-
 globals:
   # True while MCU-reported state is being pushed into the fan entity (or
   # before the first MCU state dump after boot), so output write_actions
@@ -39,7 +37,7 @@ fan:
     platform: speed
     output: skyfan_speed
     direction_output: skyfan_direction
-    name: ${fan_name}
+    name: None  # entity takes the device's friendly_name
     restore_mode: NO_RESTORE
     disabled_by_default: false
     speed_count: 6
@@ -192,7 +190,6 @@ switch:
   - id: datapoint_onoff
     platform: tuya
     tuya_id: tuyamcu
-    name: ${fan_name} Switch
     switch_datapoint: 1
     internal: true
 
@@ -200,7 +197,7 @@ select:
   - id: datapoint_mode
     platform: tuya
     tuya_id: tuyamcu
-    name: ${fan_name} Mode
+    name: Fan Mode
     enum_datapoint: 2
     entity_category: config
     options:
@@ -212,7 +209,6 @@ select:
   - id: datapoint_direction
     platform: tuya
     tuya_id: tuyamcu
-    name: ${fan_name} Direction
     enum_datapoint: 8
     options:
       0: Forward
@@ -222,7 +218,7 @@ select:
   - id: datapoint_timer
     platform: tuya
     tuya_id: tuyamcu
-    name: ${fan_name} Timer
+    name: Fan Timer
     enum_datapoint: 22
     entity_category: config
     options:
@@ -245,7 +241,6 @@ number:
   - id: datapoint_speed
     platform: tuya
     tuya_id: tuyamcu
-    name: ${fan_name} Speed
     number_datapoint: 3
     min_value: 0
     max_value: 5
