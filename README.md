@@ -120,18 +120,3 @@ continuous CT slider quantises to the hardware's three steps
 (3000/4000/5000 K) and snaps to the confirmed value. Set each light's
 favourite colours in HA to exactly 3000/4000/5000 K (long-press a swatch
 in the more-info dialog to edit) so the presets land on real steps.
-
-## Entity renames (one-time migration per device)
-
-The generic names above replaced the old per-device names ("skyfan",
-"ceilinglight", "C6 WiFi Signal", ...). Renaming changes each entity's
-unique_id, so on the first flash with these packages HA creates new
-entities and orphans the old ones. Per device, once:
-
-1. Flash, then open the device page in HA and confirm the new entities.
-2. Settings > Devices & Services > Entities: filter by the device,
-   delete the unavailable (orphaned) old entities - including the old
-   "... Color Temperature" select, which is now internal.
-3. Repoint dashboards, automations, Node-RED flows, and InfluxDB
-   queries from the old entity_ids to the new ones. Long-term
-   statistics do not carry across entity_ids.
